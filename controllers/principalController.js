@@ -28,16 +28,20 @@ async function salvaraqr(req, res) {
   }
 }
 
+
 async function processarPDF(filePath) {
   try {
+    // Ler o arquivo PDF
     const dataBuffer = await fs.promises.readFile(filePath);
 
+    // Chamar a função para processar e salvar como CSV
     return await parsePDFAndSaveToCSV(dataBuffer, filePath);
   } catch (error) {
     console.error("Erro ao processar o PDF:", error);
-    throw error; 
+    throw error; // Propagar o erro para tratamento no nível superior
   }
 }
+
 
 async function parsePDFAndSaveToCSV(dataBuffer, outputFilePath) {
   try {
@@ -52,14 +56,18 @@ async function parsePDFAndSaveToCSV(dataBuffer, outputFilePath) {
     for (let i = 0; i < lines.length; i++) {
       let line = lines[i];
 
-      if (line.match(/^\(?\d{2}:\d{2}\)?$/) || line.match(/^\(?\d{3}:\d{2}\)?$/)) {
-        currentSaldo = line.replace(/[()]/g, '').trim(); 
+      // Identifica o saldo (incluindo saldos entre parênteses e com formato 000:00)
+      if (line.match(/^\(?\d{2,3}:\d{2}\)?$/)) {
+        // Remove parênteses se houver e adiciona sinal negativo se saldo estiver entre parênteses
+        currentSaldo = line.includes('(') ? `-${line.replace(/[()]/g, '').trim()}` : line.trim();
       } 
+      // Identifica a loja e contrato e nome
       else if (line.match(/^\d{8} - /)) {
         const [contrato, nome] = line.split(' - ');
         results.push({ loja: currentStore, contrato: contrato.trim(), nome: nome.trim(), saldo: currentSaldo });
-        currentSaldo = ''; 
+        currentSaldo = ''; // Zerar o saldo após processar
       } 
+      // Identifica a loja atual
       else if (line.match(/^\d{3} - /)) {
         currentStore = line.split(' - ')[1].trim();
       }
@@ -76,9 +84,10 @@ async function parsePDFAndSaveToCSV(dataBuffer, outputFilePath) {
     return csvFilePath;
   } catch (error) {
     console.error("Erro ao processar o PDF e salvar como CSV:", error);
-    throw error;
+    throw error; // Propaga o erro para tratamento no nível superior
   }
 }
+
 
 
 module.exports = {
