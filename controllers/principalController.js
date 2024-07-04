@@ -1,11 +1,23 @@
-
 const fs = require("fs");
 const path = require("path");
 const csv = require("csv-parser");
 const pdfParse = require('pdf-parse');
+const csvWriter = require('csv-writer').createObjectCsvWriter;
+const { PDFDocument } = require('pdf-lib');
 
-async function page(req, res) {
-  res.render("admin/page.ejs", { msg: "" });
+const { createWorker } = require('tesseract.js');
+
+async function principal(req,res){
+  res.render("admin/principal.ejs");
+}
+
+async function abrirbancohr(req, res) {
+  res.render("admin/bancohr.ejs", { msg: "" });
+}
+
+async function abrirpagcontrato(req, res) {
+  res.render("admin/contratos.ejs", { msg: "" });
+
 }
 
 async function salvaraqr(req, res) {
@@ -28,7 +40,6 @@ async function salvaraqr(req, res) {
   }
 }
 
-
 async function processarPDF(filePath) {
   try {
     // Ler o arquivo PDF
@@ -41,7 +52,6 @@ async function processarPDF(filePath) {
     throw error; // Propagar o erro para tratamento no nível superior
   }
 }
-
 
 async function parsePDFAndSaveToCSV(dataBuffer, outputFilePath) {
   try {
@@ -56,18 +66,14 @@ async function parsePDFAndSaveToCSV(dataBuffer, outputFilePath) {
     for (let i = 0; i < lines.length; i++) {
       let line = lines[i];
 
-      // Identifica o saldo (incluindo saldos entre parênteses e com formato 000:00)
       if (line.match(/^\(?\d{2,3}:\d{2}\)?$/)) {
-        // Remove parênteses se houver e adiciona sinal negativo se saldo estiver entre parênteses
         currentSaldo = line.includes('(') ? `-${line.replace(/[()]/g, '').trim()}` : line.trim();
       } 
-      // Identifica a loja e contrato e nome
       else if (line.match(/^\d{8} - /)) {
         const [contrato, nome] = line.split(' - ');
         results.push({ loja: currentStore, contrato: contrato.trim(), nome: nome.trim(), saldo: currentSaldo });
-        currentSaldo = ''; // Zerar o saldo após processar
+        currentSaldo = ''; 
       } 
-      // Identifica a loja atual
       else if (line.match(/^\d{3} - /)) {
         currentStore = line.split(' - ')[1].trim();
       }
@@ -84,15 +90,116 @@ async function parsePDFAndSaveToCSV(dataBuffer, outputFilePath) {
     return csvFilePath;
   } catch (error) {
     console.error("Erro ao processar o PDF e salvar como CSV:", error);
-    throw error; // Propaga o erro para tratamento no nível superior
+    throw error; 
   }
+}
+
+async function salvarcontrato(req, res) {
+  try {
+    const filePath = path.join(__dirname, "../public/img", req.file.filename);
+
+    const csvFilePath = await processPdf(filePath);
+
+    res.download(csvFilePath, 'contratos.csv', (err) => {
+      if (err) {
+        console.error("Erro ao enviar o arquivo para download:", err);
+        res.status(500).send("Erro ao enviar o arquivo para download.");
+      } else {
+        console.log("Arquivo enviado para download com sucesso.");
+      }
+    });
+  } catch (error) {
+    console.error("Erro ao processar o arquivo PDF:", error);
+    res.status(500).send("Erro ao processar o arquivo PDF.");
+  }
+}
+
+async function processPdf(pdfPath) {
+  const imagePaths = await convertPdfToImages(pdfPath);
+
+  let extractedText = '';
+  for (const imagePath of imagePaths) {
+    const text = await extractTextFromImage(imagePath);
+    extractedText += text + '\n';
+  }
+
+  const rows = parseTable(extractedText);
+  await saveToCsv(rows, 'output.csv');
+}
+
+function parseTable(text) {
+  const lines = text.split('\n');
+  const rows = [];
+
+  let currentRecord = {};
+  let headersFound = false;
+  let headers = [];
+
+  lines.forEach(line => {
+    if (line.includes("Funcionário") && line.includes("Unidade") && line.includes("Setor") && line.includes("Cargo") && line.includes("Saldo Banco de Horas")) {
+      headersFound = true;
+      headers = line.split(/\s+/).filter(Boolean);
+    } else if (headersFound) {
+      const values = line.split(/\s+/).filter(Boolean);
+      if (values.length === headers.length) {
+        currentRecord = {};
+        headers.forEach((header, index) => {
+          currentRecord[header] = values[index];
+        });
+        rows.push(currentRecord);
+      }
+    }
+  });
+
+  return rows;
+}
+
+async function saveToCsv(rows, outputFilePath) {
+  const header = Object.keys(rows[0]).map(key => ({ id: key, title: key }));
+  const csvWriterInstance = csvWriter({ path: outputFilePath, header });
+  await csvWriterInstance.writeRecords(rows);
+  console.log(`CSV salvo com sucesso em ${outputFilePath}`);
+}
+
+async function convertPdfToImages(pdfPath) {
+  const existingPdfBytes = await fs.promises.readFile(pdfPath);
+  const pdfDoc = await PDFDocument.load(existingPdfBytes);
+
+  const numPages = pdfDoc.getPageCount();
+  const imagePaths = [];
+
+  for (let i = 0; i < numPages; i++) {
+    const page = pdfDoc.getPage(i);
+    const jpgImage = await page.renderToBuffer({ format: 'jpg' });
+
+    const imagePath = `page-${i + 1}.jpg`;
+    await fs.promises.writeFile(imagePath, jpgImage);
+    imagePaths.push(imagePath);
+  }
+
+  return imagePaths;
+}
+
+async function extractTextFromImage(imagePath) {
+  const worker = createWorker();
+  await worker.load();
+  await worker.loadLanguage('eng');
+  await worker.initialize('eng');
+  const { data: { text } } = await worker.recognize(imagePath);
+  await worker.terminate();
+  return text;
 }
 
 
 
+
+
 module.exports = {
-  page,
+  principal,
+  abrirbancohr,
+  abrirpagcontrato,
   salvaraqr,
+  salvarcontrato,
   processarPDF,
   parsePDFAndSaveToCSV,
 };

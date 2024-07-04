@@ -1308,3 +1308,11 @@ h6 {
   justify-content: space-between;
   flex-direction: row;
 }
+
+.profile_picture img {
+  height: 100px;
+  width: 100px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #dfdfdf;
+}
