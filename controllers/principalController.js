@@ -213,60 +213,169 @@ async function parsePDFAndSaveToCSVsetor(dataBuffer, outputFilePath) {
     const lines = text.split('\n').map(line => line.trim()).filter(line => line);
 
     let currentStore = "";
-let currentSector = "";
-let currentRole = "";
-let newPage = false;
-const results = [];
+    let currentSector = "";
+    let currentRole = "";
+    let previousRole = "";
+    let previousSector = "";
+    let newPage = false;
+    let pageSector = "";
+    let pageRole = "";
+    let pendingLine = null;
+    let pendingType = null;
+    const results = [];
 
-lines.forEach((line, index) => {
-  // Identifica nova página e reseta as variáveis de controle
-  if (line.match(/^Osmar Nicolini Comércio e Distrib S.A\./)) {
-    const storeLine = lines[index + 1]?.trim();
-    if (storeLine) {
-      const [storeNumber, ...storeNameParts] = storeLine.split(' ');
-      currentStore = `${storeNumber} ${storeNameParts.join(' ')}`.trim();
-    }
-    newPage = true;
-  } else if (newPage) {
-    newPage = false;
-  } 
+    const skipPatterns = [
+      /^Total do\(a\)/,
+      /^Osmar Nicolini Comércio e Distrib S.A\./,
+      /^RHPR\d{4}\/\d{4}/,
+      /^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}/,
+      /^Pág\.:/,
+      /^\d{3,}$/,
+      /^G omes$/,
+      /^Funcionários Por Setor$/,
+      /^\/\/$/,
+      /^.*\/.*\/.*$/,
+    ];
   
-  if (line.match(/Total do\(a\)/)) {
-    // Pular para a próxima linha enquanto encontrar "Total do(a)"
-    while (lines[index + 1] && lines[index + 1].match(/Total do\(a\)/)) {
-      index++;
-    }
-    
-    // Após sair do loop, processa a próxima linha, se existir
-    if (lines[index + 1]) {
-      if (lines[index + 2] && lines[index + 2].match(/^\d{8}/)) {
-        // Linha 2 após "Total do(a)" é uma função
-        currentRole = lines[index + 1].trim();
-      } else {
-        // Linha 2 após "Total do(a)" é um setor e Linha 3 é uma função
-        currentSector = lines[index + 1].trim();
-        currentRole = lines[index + 2]?.trim() || '';
-      }
-    }
-  } else if (line.match(/^\d{8}/)) {
-    // Linha que contém um funcionário
-    const match = line.match(/^(\d{8})(.*?)(\d{2}\/\d{2}\/\d{4})$/);
-    if (match) {
-      const contract = match[1].trim();
-      const name = match[2].trim();
-      const admissionDate = match[3].trim();
-      results.push({
-        loja: currentStore,
-        contrato: contract,
-        nome: name,
-        setor: currentSector,
-        funcao: currentRole,
-        admissao: admissionDate
-      });
-    }
-  }
-});
+    const skipKeywords = [
+      "Gomes", "M onsenhor", "Dom pedrito", "Tupy", "Fragata", "Sede", "Rosário do Sul",
+      "Santa tecla", "Rodoviária", "Neto", "São Judas", "Fernando Osório", "Livramento",
+      "Quarai", "Caçapava", "São Gabriel", "CDA", "chácara", "Deposito",
+      "Filia", "Nicolini", "//", "Contato", "A tacado", "Quaraí"
+    ];
 
+    lines.forEach((line, index) => {
+      // Identifica nova página e reseta variáveis
+      if (line.match(/^Osmar Nicolini Comércio e Distrib S.A\./)) {
+        const storeLine = lines[index + 1]?.trim();
+        if (storeLine) {
+          const [storeNumber, ...storeNameParts] = storeLine.split(' ');
+          currentStore = `${storeNumber} ${storeNameParts.join(' ')}`.trim();
+        }
+        newPage = true;
+        previousRole = currentRole;
+        previousSector = currentSector;
+        console.log("Anteriores");
+        console.log(previousRole);
+        console.log(previousSector);
+        pageSector = "";
+        pageRole = "";
+      }
+
+      // Lógica para identificar setor e função na nova página
+      if (newPage) {
+        if (pendingLine) {
+          if (line.match(/^\d{8}/)) {
+            currentRole = pendingLine;
+            currentSector = previousSector;
+          } else {
+            currentSector = pendingLine;
+            currentRole = '';
+          }
+          pendingLine = '';
+          pendingType = '';
+        }
+
+        if (line.match("ContatoNomeAdmissão")) {
+          const nextLine = lines[index + 1]?.trim();
+          if (nextLine) {
+            if (nextLine.match(/^\d{8}/)) {
+              currentSector = previousSector;
+              currentRole = previousRole;
+            } else {
+              const potentialSector = nextLine.replace(/\d/g, '').trim();
+              const nextNextLine = lines[index + 2]?.trim();
+              if (nextNextLine && nextNextLine.match(/^\d{8}/)) {
+                currentSector = previousSector;
+                currentRole = potentialSector;
+              } else if (nextNextLine) {
+                currentSector = potentialSector;
+                currentRole = nextNextLine.replace(/\d/g, '').trim();
+              } else {
+                pendingLine = potentialSector;
+                pendingType = 'sectorOrRole';
+              }
+            }
+          }
+          newPage = false;
+        }
+
+        if (line.match(/Total do\(a\)/)) {
+          const nextLine = lines[index + 1]?.trim();
+          if (nextLine) {
+            if (!lines[index + 2]) {
+              pendingLine = nextLine.replace(/\d/g, '').trim();
+              pendingType = 'sectorOrRole';
+            } else if (lines[index + 2].match(/^\d{8}/)) {
+              currentRole = nextLine.replace(/\d/g, '').trim();
+            } else {
+              currentSector = nextLine.replace(/\d/g, '').trim();
+              currentRole = lines[index + 2]?.replace(/\d/g, '').trim() || '';
+            }
+          }
+          newPage = false;
+        }
+      }
+
+      // Pular padrões desnecessários
+      while (
+        lines[index + 1] && 
+        (skipPatterns.some(pattern => lines[index + 1].match(pattern)) || 
+         skipKeywords.some(keyword => lines[index + 1].toLowerCase().includes(keyword.toLowerCase())))
+      ) {
+        index++;
+      }
+
+      if (line.match(/Total do\(a\)/)) {
+        const nextLine = lines[index + 1]?.trim();
+        if (nextLine) {
+          if (!lines[index + 2]) {
+            pendingLine = currentSector;
+            pendingType = 'sectorOrRole';
+          } else if (lines[index + 2].match(/^\d{8}/)) {
+            currentRole = nextLine.replace(/\d/g, '').trim();
+          } else {
+            currentSector = nextLine.replace(/\d/g, '').trim();
+            currentRole = lines[index + 2]?.replace(/\d/g, '').trim() || '';
+          }
+        }
+        newPage = false;
+      } else if (line.match(/^\d{8}/)) {
+        const match = line.match(/^(\d{8})(.*?)(\d{2}\/\d{2}\/\d{4})$/);
+        if (match) {
+          const contract = match[1].trim();
+          const name = match[2].trim();
+          const admissionDate = match[3].trim();
+
+          if (pendingType === 'sectorOrRole') {
+            currentRole = pendingLine;
+            pendingLine = '';
+            pendingType = '';
+            currentSector = previousSector || '';
+          }
+
+          results.push({
+            loja: currentStore,
+            contrato: contract,
+            nome: name,
+            setor: currentSector,
+            funcao: currentRole,
+            admissao: admissionDate
+          });
+        }
+      } else {
+        if (skipPatterns.some(pattern => line.match(pattern))) {
+          currentRole = currentSector;
+        }
+
+        if (pendingType === 'sectorOrRole' && !line.match(/^\d{8}/)) {
+          currentSector = pendingLine;
+          currentRole = '';
+          pendingLine = '';
+          pendingType = '';
+        }
+      }
+    });
 
     const csvData = results.map(row => `${row.loja},${row.contrato},${row.nome},${row.setor},${row.funcao},${row.admissao}`).join('\n');
     const csvHeader = 'Loja,Contrato,Nome,Setor,Funcao,Admissao\n';
@@ -282,6 +391,14 @@ lines.forEach((line, index) => {
     throw error;
   }
 }
+
+
+
+
+
+
+
+
 
 
 module.exports = {
