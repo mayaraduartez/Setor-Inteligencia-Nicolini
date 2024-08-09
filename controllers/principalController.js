@@ -264,63 +264,74 @@ async function parseCSVAndSaveToCSVsetor(filePath) {
             let nextLine = linesArray[index + 1]?.trim();
             let nextNextLine = linesArray[index + 2]?.trim();
         
-            // Ignorar todas as linhas "Total do..." abaixo de "Contato"
-            while (nextLine && nextLine.match(/^Total do/)) {
-                nextLine = linesArray[++index + 1]?.trim();
-                nextNextLine = linesArray[index + 2]?.trim();
-            }
-        
-            if (nextLine && !nextLine.match(/^\d{8}/) && 
-                !skipPatterns.some(pattern => nextLine.match(pattern)) &&
-                !skipKeywords.some(keyword => nextLine.toLowerCase().includes(keyword.toLowerCase())) &&
-                !nextLine.match(/^\d{8}/)) {  // Check if it’s different from "Funcionário"
-        
-                if (nextNextLine && !nextNextLine.match(/^\d{8}/) && 
-                    !skipPatterns.some(pattern => nextNextLine.match(pattern)) &&
-                    !skipKeywords.some(keyword => nextNextLine.toLowerCase().includes(keyword.toLowerCase())) &&
-                    !nextNextLine.match(/^\d{8}/)) {  // Check if it’s different from "Funcionário"
-        
-                    currentSetor = nextLine;
-                    currentFuncao = nextNextLine;
-                } else {
-                    currentSetor = nextLine;
-                }
-            }
-            return;
-        }
-        
-        if (line.match(/Total do\(a\)/)) {
-            let nextLine = linesArray[index + 1]?.trim();
-            let nextNextLine = linesArray[index + 2]?.trim();
-        
             // Ignorar todas as linhas "Total do..." abaixo de "Total do..."
             while (nextLine && nextLine.match(/^Total do/)) {
                 nextLine = linesArray[++index + 1]?.trim();
                 nextNextLine = linesArray[index + 2]?.trim();
             }
         
+            // If the next line is not a "Funcionário" but the following one is, treat the next line as "Função"
+            if (nextLine && nextNextLine && nextNextLine.match(/^\d{8}/) && 
+                !skipPatterns.some(pattern => nextLine.match(pattern)) &&
+                !skipKeywords.some(keyword => nextLine.toLowerCase().includes(keyword.toLowerCase()))) {
+                currentFuncao = nextLine;
+                return;
+            }
+        
+            // Otherwise, process normally for setor and função
             if (nextLine && !nextLine.match(/^\d{8}/) && 
                 !skipPatterns.some(pattern => nextLine.match(pattern)) &&
-                !skipKeywords.some(keyword => nextLine.toLowerCase().includes(keyword.toLowerCase())) &&
-                !nextLine.match(/^\d{8}/)) {  // Check if it’s different from "Funcionário"
+                !skipKeywords.some(keyword => nextLine.toLowerCase().includes(keyword.toLowerCase()))) {
         
                 if (nextNextLine && !nextNextLine.match(/^\d{8}/) && 
                     !skipPatterns.some(pattern => nextNextLine.match(pattern)) &&
-                    !skipKeywords.some(keyword => nextNextLine.toLowerCase().includes(keyword.toLowerCase())) &&
-                    !nextNextLine.match(/^\d{8}/)) {  // Check if it’s different from "Funcionário"
+                    !skipKeywords.some(keyword => nextNextLine.toLowerCase().includes(keyword.toLowerCase()))) {
         
                     currentSetor = nextLine;
                     currentFuncao = nextNextLine;
                 } else {
-                    currentSetor = nextLine;
+                   
                 }
             }
             return;
         }
         
-        
-          
-          
+        if (line.match(/Total do\(a\)/)) {
+          let nextLine = linesArray[index + 1]?.trim();
+          let nextNextLine = linesArray[index + 2]?.trim();
+      
+          // Ignorar todas as linhas "Total do..." abaixo de "Total do..."
+          while (nextLine && nextLine.match(/^Total do/)) {
+              nextLine = linesArray[++index + 1]?.trim();
+              nextNextLine = linesArray[index + 2]?.trim();
+          }
+      
+          // If the next line is not a "Funcionário" but the following one is, treat the next line as "Função"
+          if (nextLine && nextNextLine && nextNextLine.match(/^\d{8}/) && 
+              !skipPatterns.some(pattern => nextLine.match(pattern)) &&
+              !skipKeywords.some(keyword => nextLine.toLowerCase().includes(keyword.toLowerCase()))) {
+              currentFuncao = nextLine;
+              return;
+          }
+      
+          // Otherwise, process normally for setor and função
+          if (nextLine && !nextLine.match(/^\d{8}/) && 
+              !skipPatterns.some(pattern => nextLine.match(pattern)) &&
+              !skipKeywords.some(keyword => nextLine.toLowerCase().includes(keyword.toLowerCase()))) {
+      
+              if (nextNextLine && !nextNextLine.match(/^\d{8}/) && 
+                  !skipPatterns.some(pattern => nextNextLine.match(pattern)) &&
+                  !skipKeywords.some(keyword => nextNextLine.toLowerCase().includes(keyword.toLowerCase()))) {
+      
+                  currentSetor = nextLine;
+                  currentFuncao = nextNextLine;
+              } else {
+                 
+              }
+          }
+          return;
+      }
+      
 
           // Verifica se a linha contém dados de funcionário
           if (line.match(/^\d{8}/)) {
