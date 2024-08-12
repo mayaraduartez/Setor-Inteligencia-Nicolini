@@ -19,7 +19,7 @@ async function abrirbancohr(req, res) {
 }
 
 async function abrirpagcontrato(req, res) {
-  res.render("admin/contratos.ejs", { msg: "" });
+  res.render("admin/pontovit.ejs", { msg: "" });
 
 }
 
@@ -88,6 +88,7 @@ async function parsePDFAndSaveToCSV(dataBuffer, outputFilePath) {
 
     const csvFilePath = outputFilePath.replace('.pdf', '.csv');
     await fs.promises.writeFile(csvFilePath, csvContent, 'utf8');
+
 
     console.log("Arquivo CSV salvo com sucesso:", csvFilePath);
     return csvFilePath;
@@ -174,7 +175,7 @@ async function csvarq(req, res) {
 }
 
 async function abrirpagcontratosetor(req, res) {
-  res.render("admin/setor.ejs", { msg: "" });
+  res.render("admin/quadro_func.ejs", { msg: "" });
 }
 
 
@@ -207,6 +208,8 @@ async function processarCSVsetor(filePath) {
     throw error;
   }
 }
+
+ 
 
 async function parseCSVAndSaveToCSVsetor(filePath) {
   try {
@@ -245,10 +248,7 @@ async function parseCSVAndSaveToCSVsetor(filePath) {
           "Filia", "Nicolini", "//", "Contato", "A tacado", "Quaraí"
         ];
 
-        
-
         linesArray.forEach((line, index) => {
-         
 
           // Verifica se a linha começa com "Osmar"
           if (line.match(/^Osmar|^Nicolini|^Ch|^SG|^Onp|^PJ/)) {
@@ -264,13 +264,13 @@ async function parseCSVAndSaveToCSVsetor(filePath) {
             let nextLine = linesArray[index + 1]?.trim();
             let nextNextLine = linesArray[index + 2]?.trim();
         
-            // Ignorar todas as linhas "Total do..." abaixo de "Total do..."
+            // Ignorar todas as linhas "Total do..." abaixo de "Contato"
             while (nextLine && nextLine.match(/^Total do/)) {
                 nextLine = linesArray[++index + 1]?.trim();
                 nextNextLine = linesArray[index + 2]?.trim();
             }
         
-            // If the next line is not a "Funcionário" but the following one is, treat the next line as "Função"
+            // Se a linha seguinte não for um "Funcionário" mas a linha seguinte for, tratar a próxima linha como "Função"
             if (nextLine && nextNextLine && nextNextLine.match(/^\d{8}/) && 
                 !skipPatterns.some(pattern => nextLine.match(pattern)) &&
                 !skipKeywords.some(keyword => nextLine.toLowerCase().includes(keyword.toLowerCase()))) {
@@ -278,7 +278,7 @@ async function parseCSVAndSaveToCSVsetor(filePath) {
                 return;
             }
         
-            // Otherwise, process normally for setor and função
+            // Caso contrário, processar normalmente para setor e função
             if (nextLine && !nextLine.match(/^\d{8}/) && 
                 !skipPatterns.some(pattern => nextLine.match(pattern)) &&
                 !skipKeywords.some(keyword => nextLine.toLowerCase().includes(keyword.toLowerCase()))) {
@@ -289,9 +289,7 @@ async function parseCSVAndSaveToCSVsetor(filePath) {
         
                     currentSetor = nextLine;
                     currentFuncao = nextNextLine;
-                } else {
-                   
-                }
+                } 
             }
             return;
         }
@@ -306,7 +304,7 @@ async function parseCSVAndSaveToCSVsetor(filePath) {
               nextNextLine = linesArray[index + 2]?.trim();
           }
       
-          // If the next line is not a "Funcionário" but the following one is, treat the next line as "Função"
+          // Se a linha seguinte não for um "Funcionário" mas a linha seguinte for, tratar a próxima linha como "Função"
           if (nextLine && nextNextLine && nextNextLine.match(/^\d{8}/) && 
               !skipPatterns.some(pattern => nextLine.match(pattern)) &&
               !skipKeywords.some(keyword => nextLine.toLowerCase().includes(keyword.toLowerCase()))) {
@@ -314,7 +312,7 @@ async function parseCSVAndSaveToCSVsetor(filePath) {
               return;
           }
       
-          // Otherwise, process normally for setor and função
+          // Caso contrário, processar normalmente para setor e função
           if (nextLine && !nextLine.match(/^\d{8}/) && 
               !skipPatterns.some(pattern => nextLine.match(pattern)) &&
               !skipKeywords.some(keyword => nextLine.toLowerCase().includes(keyword.toLowerCase()))) {
@@ -325,14 +323,11 @@ async function parseCSVAndSaveToCSVsetor(filePath) {
       
                   currentSetor = nextLine;
                   currentFuncao = nextNextLine;
-              } else {
-                 
-              }
+              } 
           }
           return;
       }
       
-
           // Verifica se a linha contém dados de funcionário
           if (line.match(/^\d{8}/)) {
             const match = line.match(/^(\d{8})\s+(.*?)\s+(\d{2}\/\d{2}\/\d{4})$/);
@@ -355,9 +350,16 @@ async function parseCSVAndSaveToCSVsetor(filePath) {
         });
 
         // Criação do conteúdo CSV
-        const csvData = results.map(row => `${row.loja},${row.contrato},${row.nome},${row.setor},${row.funcao},${row.admissao}`).join('\n');
+        const csvData = results.map(row => 
+          `${row.loja},${row.contrato},${row.nome},${row.setor},${row.funcao},${row.admissao}`
+          .replace(/"/g, '""')  // Escapa as aspas duplas
+        ).join('\n');
+
         const csvHeader = 'Loja,Contrato,Nome,Setor,Funcao,Admissao'; // Atualize o cabeçalho conforme necessário
         const csvContent = csvHeader + '\n' + csvData;
+
+        // Imprime o conteúdo CSV para verificação
+        console.log(csvContent);
 
         // Salva o arquivo CSV
         const csvFilePath = filePath.replace('.txt', '-processed.csv'); // Ajustar a extensão do arquivo
@@ -377,6 +379,7 @@ async function parseCSVAndSaveToCSVsetor(filePath) {
     throw error;
   }
 }
+
 
 
 
