@@ -18,9 +18,13 @@ async function abrirbancohr(req, res) {
   res.render("admin/bancohr.ejs", { msg: "" });
 }
 
-async function abrirpagcontrato(req, res) {
+async function contrato_pontovit(req, res) {
   res.render("admin/pontovit.ejs", { msg: "" });
 
+}
+
+async function contrato_departamento(req, res) {
+  res.render("admin/quadro_func.ejs", { msg: "" });
 }
 
 async function salvaraqr(req, res) {
@@ -138,10 +142,11 @@ function horasParaFloat(horas) {
 async function csvarq(req, res) {
   try {
     const filePath = path.join(__dirname, "../public/img", req.file.filename);
-    const outputFile = path.join(__dirname, "../public/img", 'contratos.csv');
+
+    // Definindo o caminho de saída para a pasta de rede
+    const outputFile = path.join('\\\\192.168.1.243\\samba\\Metas\\INTELIGENCIA\\ALEXANDRE\\01-BI_inicadores_entrega', 'contratos.csv');
 
     const processedRows = [];
-
 
     fs.createReadStream(filePath, { encoding: 'utf-8' })
       .pipe(csv({ separator: ';' }))
@@ -157,27 +162,32 @@ async function csvarq(req, res) {
       .on('end', () => {
         fastcsv.writeToPath(outputFile, processedRows, { headers: true })
           .on('finish', () => {
-            res.download(outputFile, 'contratos.csv', (err) => {
-              if (err) {
-                console.error("Erro ao enviar o arquivo para download:", err);
-                res.status(500).send("Erro ao enviar o arquivo para download.");
-              } else {
-                console.log("Arquivo enviado para download com sucesso.");
-              }
-            });
+            console.log("Arquivo salvo com sucesso em:", outputFile);
+            if (!res.headersSent) {
+              res.render('admin/pontovit', { msg: "Arquivo substituído!" });
+            }
+          })
+          .on('error', (error) => {
+            console.error("Erro ao salvar o arquivo CSV:", error);
+            if (!res.headersSent) {
+              res.status(500).send("Erro ao salvar o arquivo CSV.");
+            }
           });
+      })
+      .on('error', (error) => {
+        console.error("Erro ao ler o arquivo CSV:", error);
+        if (!res.headersSent) {
+          res.status(500).send("Erro ao ler o arquivo CSV.");
+        }
       });
 
   } catch (error) {
     console.error("Erro ao processar o arquivo CSV:", error);
-    res.status(500).send("Erro ao processar o arquivo CSV.");
+    if (!res.headersSent) {
+      res.status(500).send("Erro ao processar o arquivo CSV.");
+    }
   }
 }
-
-async function abrirpagcontratosetor(req, res) {
-  res.render("admin/quadro_func.ejs", { msg: "" });
-}
-
 
 async function csvarqsetor(req, res) {
   try {
@@ -393,11 +403,11 @@ async function parseCSVAndSaveToCSVsetor(filePath) {
 module.exports = {
   principal,
   abrirbancohr,
-  abrirpagcontrato,
+  contrato_pontovit,
   salvaraqr,
   csvarq,
   processarPDF,
   parsePDFAndSaveToCSV,
-  abrirpagcontratosetor,
+  contrato_departamento,
   csvarqsetor
 };

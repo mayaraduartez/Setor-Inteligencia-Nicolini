@@ -8,14 +8,14 @@ router.get('/', principalController.principal);
 router.get('/bancohr', 
 principalController.abrirbancohr);
 
-router.get('/csv', principalController.abrirpagcontrato);
+router.get('/pontovit', principalController.contrato_pontovit);
 
-router.get('/setor', principalController.abrirpagcontratosetor);
+router.get('/departamento', principalController.contrato_departamento);
 
 router.post('/bancohr', 
 upload.single('arquivo'), principalController.salvaraqr);
 
-router.post('/csv', 
+router.post('/pontovit', 
 upload.single('arquivo'), principalController.csvarq);
 
 router.post('/setor', 
