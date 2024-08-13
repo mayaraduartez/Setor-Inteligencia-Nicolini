@@ -18,7 +18,7 @@ upload.single('arquivo'), principalController.salvaraqr);
 router.post('/pontovit', 
 upload.single('arquivo'), principalController.csvarq);
 
-router.post('/setor', 
+router.post('/departamento', 
 upload.single('arquivo'), principalController.csvarqsetor);
 
 

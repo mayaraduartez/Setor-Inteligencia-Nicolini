@@ -189,18 +189,22 @@ async function csvarq(req, res) {
   }
 }
 
+const outputFile = path.join('\\\\192.168.1.243\\samba\\Metas\\INTELIGENCIA\\ALEXANDRE\\01-BI_inicadores_entrega', 'Quadro atualizado.csv');
+
 async function csvarqsetor(req, res) {
   try {
     const filePath = path.join(__dirname, "../public/img", req.file.filename);
-
     const csvFilePath = await processarCSVsetor(filePath);
 
-    res.download(csvFilePath, 'dados.csv', (err) => {
+    // Salva o arquivo diretamente na rota especificada
+    fs.copyFile(csvFilePath, outputFile, (err) => {
       if (err) {
-        console.error("Erro ao enviar o arquivo para download:", err);
-        res.status(500).send("Erro ao enviar o arquivo para download.");
+        console.error("Erro ao salvar o arquivo:", err);
+        res.status(500).send("Erro ao salvar o arquivo.");
       } else {
-        console.log("Arquivo enviado para download com sucesso.");
+        console.log("Arquivo salvo com sucesso.");
+        res.render('admin/pontovit', { msg: "Arquivo substituído!" });
+
       }
     });
   } catch (error) {
